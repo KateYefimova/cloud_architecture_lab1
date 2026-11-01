@@ -1,0 +1,86 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Milestone 1 - Network Infrastructure Stack (VPC, Subnets, IGW)'
+
+Resources:
+  # 1. Створення Virtual Private Cloud 
+  MainVPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: '10.100.0.0/16'
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: 'capstone-vpc'
+
+  # 2. Створення Internet Gateway для публічного доступу
+  InternetGateway:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: 'capstone-igw'
+
+  VPCGatewayAttachment:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      VpcId: !Ref MainVPC
+      InternetGatewayId: !Ref InternetGateway
+
+  # 3. Публічна підмережа 
+  PublicSubnet:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref MainVPC
+      CidrBlock: '10.100.1.0/24'
+      MapPublicIpOnLaunch: true
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: 'capstone-public-subnet'
+
+  # 4. Приватна підмережа  для внутрішніх ресурсів
+  PrivateSubnet:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref MainVPC
+      CidrBlock: '10.100.2.0/24'
+      AvailabilityZone: !Select [0, !GetAZs '']
+      Tags:
+        - Key: Name
+          Value: 'capstone-private-subnet'
+
+  # 5. Таблиця маршрутизації для публічної підмережі
+  PublicRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref MainVPC
+      Tags:
+        - Key: Name
+          Value: 'capstone-public-rt'
+
+  PublicRoute:
+    Type: 'AWS::EC2::Route'
+    DependsOn: VPCGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref InternetGateway
+
+  # Прив'язка таблиці маршрутизації до публічної підмережі
+  PublicSubnetRouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref PublicSubnet
+      RouteTableId: !Ref PublicRouteTable
+
+Outputs:
+  VpcId:
+    Description: 'ID створеної VPC'
+    Value: !Ref MainVPC
+  PublicSubnetId:
+    Description: 'ID публічної підмережі'
+    Value: !Ref PublicSubnet
+  PrivateSubnetId:
+    Description: 'ID приватної підмережі'
+    Value: !Ref PrivateSubnet
